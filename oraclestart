@@ -1,0 +1,112 @@
+一、在Linux下启动Oracle 
+切换到oracle用户权限
+# su – oracle
+$ sqlplus "/as sysdba"
+开启命令：
+SQL> startup
+关闭命令：
+SQL> shutdown immediate
+二、检查Oracle DB监听器是否正常
+启动监听模式：
+[oracle@localhost ~]$ lsnrctl start
+三、启动emctl
+[oracle@localhost ~]$ emctl stop dbconsole
+[oracle@localhost ~]$ emctl start dbconsole
+四、Oracle启动&停止脚本
+1.修改Oracle系统配置文件：
+[root@localhost ~]# vim /etc/oratab
+最后一行：N改为Y
+2.在/etc/init.d/下创建文件oracle,
+# cd /etc/init.d/
+# touch oracle
+# vim oracle
+文件内容：
+#!/bin/sh 
+# chkconfig: 35 80 10 
+# description: Oracle auto start-stop script. 
+# 
+# Set ORA_HOME to be equivalent to the $ORACLE_HOME 
+# from which you wish to execute dbstart and dbshut; 
+# 
+# Set ORA_OWNER to the user id of the owner of the 
+# Oracle database in ORA_HOME. 
+ORA_HOME=/u01/app/oracle/product/10.2.0/db_1
+ORA_OWNER=oracle
+if [ ! -f $ORA_HOME/bin/dbstart ]
+then
+echo "Oracle startup: cannot start" 
+exit
+fi
+case "$1" in
+'start')
+# Start the Oracle databases: 
+echo "Starting Oracle Databases ... " 
+echo "-------------------------------------------------" >> /var/log/oracle
+date +" %T %a %D : Starting Oracle Databases as part of system up." >> /var/log/oracle
+echo "-------------------------------------------------" >> /var/log/oracle
+su - $ORA_OWNER -c "$ORA_HOME/bin/dbstart" >>/var/log/oracle
+echo "Done" 
+# Start the Listener: 
+echo "Starting Oracle Listeners ... " 
+echo "-------------------------------------------------" >> /var/log/oracle
+date +" %T %a %D : Starting Oracle Listeners as part of system up." >> /var/log/oracle
+echo "-------------------------------------------------" >> /var/log/oracle
+su - $ORA_OWNER -c "$ORA_HOME/bin/lsnrctl start" >>/var/log/oracle
+echo "Done." 
+echo "-------------------------------------------------" >> /var/log/oracle
+date +" %T %a %D : Finished." >> /var/log/oracle
+echo "-------------------------------------------------" >> /var/log/oracle
+touch /var/lock/subsys/oracle
+;;
+'stop')
+# Stop the Oracle Listener: 
+echo "Stoping Oracle Listeners ... " 
+echo "-------------------------------------------------" >> /var/log/oracle
+date +" %T %a %D : Stoping Oracle Listener as part of system down." >> /var/log/oracle
+echo "-------------------------------------------------" >> /var/log/oracle
+su - $ORA_OWNER -c "$ORA_HOME/bin/lsnrctl stop" >>/var/log/oracle
+echo "Done." 
+rm -f /var/lock/subsys/oracle
+# Stop the Oracle Database: 
+echo "Stoping Oracle Databases ... " 
+echo "-------------------------------------------------" >> /var/log/oracle
+date +" %T %a %D : Stoping Oracle Databases as part of system down." >> /var/log/oracle
+echo "-------------------------------------------------" >> /var/log/oracle
+su - $ORA_OWNER -c "$ORA_HOME/bin/dbshut" >>/var/log/oracle
+echo "Done." 
+echo "" 
+echo "-------------------------------------------------" >> /var/log/oracle
+date +" %T %a %D : Finished." >> /var/log/oracle
+echo "-------------------------------------------------" >> /var/log/oracle
+;;
+'restart')
+$0 stop
+$0 start
+Esac
+3.改变文件权限
+[root@localhost ~]# chmod 755 /etc/init.d/oracle
+4.添加服务
+[root@localhost ~]# chkconfig –level 35 oracle on
+5. 需要在关机或重启机器之前停止数据库，做一下操作
+[root@localhost ~]# ln -s /etc/init.d/oracle /etc/rc0.d/K01oracle   //关机
+[root@localhost ~]# ln -s /etc/init.d/oracle /etc/rc6.d/K01oracle   //重启
+6. 使用方法
+[root@localhost ~]# service oracle start        //启动oracle
+[root@localhost ~]# service oracle stop        //关闭oracle
+[root@localhost ~]# service oracle restart     //重启oracle
+7. 测试
+a. 开机自启动
+[root@localhost ~]# su - oracle
+[oracle@localhost ~]$ sqlplus / as sysdba
+SQL> set linesize 300; 
+SQL> set pagesize 30; 
+SQL> select * from scott.emp;
+b.停止 
+[root@localhost ~]# service oracle stop 
+[root@ORS ~]# su - oracle 
+[oracle@ORS ~]$ sqlplus "/as sysdba" 
+SQL> set linesize 300; 
+SQL> set pagesize 30; 
+SQL> select * from scott.emp; 
+select * from scott.emp 
+
